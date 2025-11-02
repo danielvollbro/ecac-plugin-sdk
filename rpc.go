@@ -5,15 +5,34 @@ import (
 	"os"
 )
 
-// Det här interface måste pluginen implementera
+type RPCRequest struct {
+	Params map[string]any
+}
+
+type RPCResponse struct {
+	Result string
+	Error  string
+}
+
 type Runner interface {
 	Run(params map[string]any) (string, error)
 }
 
-// Startar RPC-server i pluginprocessen
 func Serve(r Runner) {
-	rpc.RegisterName("Plugin", r)
+	rpc.RegisterName("Plugin", &adapter{runner: r})
 	rpc.ServeConn(&stdio{})
+}
+
+type adapter struct{ runner Runner }
+
+func (a *adapter) Run(req RPCRequest, resp *RPCResponse) error {
+	result, err := a.runner.Run(req.Params)
+	if err != nil {
+		resp.Error = err.Error()
+		return nil
+	}
+	resp.Result = result
+	return nil
 }
 
 type stdio struct{}
